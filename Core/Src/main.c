@@ -49,29 +49,59 @@ TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim6;
 
-UART_HandleTypeDef huart2;
+UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
-UART_HandleTypeDef huart2;
+
 volatile uint8_t T_batt = 0;
 volatile uint8_t adcValue;
 volatile float batteryVoltage = 0.0f;
 volatile uint8_t ADC_on = 0;
 unsigned char rxData;
+volatile uint8_t flag;
 
+typedef enum {
+	STATE_NEUTRAL,
+	STATE_AV1,
+	STATE_AV2,
+	STATE_AV3,
+	STATE_R1,
+	STATE_R2,
+	STATE_R3,
+	STATE_D1,
+	STATE_D2,
+	STATE_D3,
+	STATE_G1,
+	STATE_G2,
+	STATE_G3,
+	STATE_END,
+} State_t;
+
+typedef enum {
+	EVENT_AV,
+	EVENT_R,
+	EVENT_D,
+	EVENT_G,
+	EVENT_END,
+} Event_t;
+
+
+State_t currentState = STATE_NEUTRAL;
+Event_t currentEvent;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_USART2_UART_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_TIM6_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM4_Init(void);
+static void MX_USART3_UART_Init(void);
 /* USER CODE BEGIN PFP */
-void send_data_to_uart(float battery);
+void handleEvent(Event_t event);
+void executeStateActions(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -108,17 +138,17 @@ int main(void)
 
 	/* Initialize all configured peripherals */
 	MX_GPIO_Init();
-	MX_USART2_UART_Init();
 	MX_ADC1_Init();
 	MX_TIM6_Init();
 	MX_TIM2_Init();
 	MX_TIM3_Init();
 	MX_TIM4_Init();
+	MX_USART3_UART_Init();
 	/* USER CODE BEGIN 2 */
 	HAL_TIM_Base_Start_IT(&htim6);
 	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
 	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
-	HAL_UART_Receive_IT(&huart2, &rxData, sizeof(rxData));
+	HAL_UART_Receive_IT(&huart3, &rxData, sizeof(rxData));
 	/* USER CODE END 2 */
 
 	/* Infinite loop */
@@ -133,7 +163,6 @@ int main(void)
 			{
 				ADC_on = 0;
 				adcValue = HAL_ADC_GetValue(&hadc1);
-				send_data_to_uart(adcValue);
 
 				if (adcValue > 231)
 				{
@@ -143,6 +172,8 @@ int main(void)
 				{
 					HAL_GPIO_WritePin(Alert_batt_GPIO_Port, Alert_batt_Pin, GPIO_PIN_RESET); // Éteindre la LED
 				}
+				handleEvent(currentEvent);
+				executeStateActions();
 			}
 
 		}
@@ -289,9 +320,9 @@ static void MX_TIM2_Init(void)
 
 	/* USER CODE END TIM2_Init 1 */
 	htim2.Instance = TIM2;
-	htim2.Init.Prescaler = 244-1;
+	htim2.Init.Prescaler = 4-1;
 	htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-	htim2.Init.Period = 65535-1;
+	htim2.Init.Period = 32000-1;
 	htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
 	htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
 	if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -485,37 +516,37 @@ static void MX_TIM6_Init(void)
 }
 
 /**
- * @brief USART2 Initialization Function
+ * @brief USART3 Initialization Function
  * @param None
  * @retval None
  */
-static void MX_USART2_UART_Init(void)
+static void MX_USART3_UART_Init(void)
 {
 
-	/* USER CODE BEGIN USART2_Init 0 */
+	/* USER CODE BEGIN USART3_Init 0 */
 
-	/* USER CODE END USART2_Init 0 */
+	/* USER CODE END USART3_Init 0 */
 
-	/* USER CODE BEGIN USART2_Init 1 */
+	/* USER CODE BEGIN USART3_Init 1 */
 
-	/* USER CODE END USART2_Init 1 */
-	huart2.Instance = USART2;
-	huart2.Init.BaudRate = 115200;
-	huart2.Init.WordLength = UART_WORDLENGTH_8B;
-	huart2.Init.StopBits = UART_STOPBITS_1;
-	huart2.Init.Parity = UART_PARITY_NONE;
-	huart2.Init.Mode = UART_MODE_RX;
-	huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-	huart2.Init.OverSampling = UART_OVERSAMPLING_16;
-	huart2.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-	huart2.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-	if (HAL_UART_Init(&huart2) != HAL_OK)
+	/* USER CODE END USART3_Init 1 */
+	huart3.Instance = USART3;
+	huart3.Init.BaudRate = 9600;
+	huart3.Init.WordLength = UART_WORDLENGTH_8B;
+	huart3.Init.StopBits = UART_STOPBITS_1;
+	huart3.Init.Parity = UART_PARITY_NONE;
+	huart3.Init.Mode = UART_MODE_TX_RX;
+	huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+	huart3.Init.OverSampling = UART_OVERSAMPLING_16;
+	huart3.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+	huart3.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+	if (HAL_UART_Init(&huart3) != HAL_OK)
 	{
 		Error_Handler();
 	}
-	/* USER CODE BEGIN USART2_Init 2 */
+	/* USER CODE BEGIN USART3_Init 2 */
 
-	/* USER CODE END USART2_Init 2 */
+	/* USER CODE END USART3_Init 2 */
 
 }
 
@@ -540,10 +571,10 @@ static void MX_GPIO_Init(void)
 	HAL_GPIO_WritePin(Alert_batt_GPIO_Port, Alert_batt_Pin, GPIO_PIN_RESET);
 
 	/*Configure GPIO pin Output Level */
-	HAL_GPIO_WritePin(Cmde_DirG_GPIO_Port, Cmde_DirG_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(DIR2_GPIO_Port, DIR2_Pin, GPIO_PIN_RESET);
 
 	/*Configure GPIO pin Output Level */
-	HAL_GPIO_WritePin(Cmde_DirD_GPIO_Port, Cmde_DirD_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(DIR1_GPIO_Port, DIR1_Pin, GPIO_PIN_RESET);
 
 	/*Configure GPIO pin : B1_Pin */
 	GPIO_InitStruct.Pin = B1_Pin;
@@ -558,35 +589,19 @@ static void MX_GPIO_Init(void)
 	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
 	HAL_GPIO_Init(Alert_batt_GPIO_Port, &GPIO_InitStruct);
 
-	/*Configure GPIO pin : PC4 */
-	GPIO_InitStruct.Pin = GPIO_PIN_4;
-	GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-	GPIO_InitStruct.Pull = GPIO_NOPULL;
-	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-	GPIO_InitStruct.Alternate = GPIO_AF7_USART3;
-	HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-
-	/*Configure GPIO pin : Cmde_DirG_Pin */
-	GPIO_InitStruct.Pin = Cmde_DirG_Pin;
+	/*Configure GPIO pin : DIR2_Pin */
+	GPIO_InitStruct.Pin = DIR2_Pin;
 	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
 	GPIO_InitStruct.Pull = GPIO_NOPULL;
 	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-	HAL_GPIO_Init(Cmde_DirG_GPIO_Port, &GPIO_InitStruct);
+	HAL_GPIO_Init(DIR2_GPIO_Port, &GPIO_InitStruct);
 
-	/*Configure GPIO pin : PB12 */
-	GPIO_InitStruct.Pin = GPIO_PIN_12;
-	GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-	GPIO_InitStruct.Pull = GPIO_NOPULL;
-	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-	GPIO_InitStruct.Alternate = GPIO_AF7_USART3;
-	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-	/*Configure GPIO pin : Cmde_DirD_Pin */
-	GPIO_InitStruct.Pin = Cmde_DirD_Pin;
+	/*Configure GPIO pin : DIR1_Pin */
+	GPIO_InitStruct.Pin = DIR1_Pin;
 	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
 	GPIO_InitStruct.Pull = GPIO_NOPULL;
 	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-	HAL_GPIO_Init(Cmde_DirD_GPIO_Port, &GPIO_InitStruct);
+	HAL_GPIO_Init(DIR1_GPIO_Port, &GPIO_InitStruct);
 
 	/* USER CODE BEGIN MX_GPIO_Init_2 */
 	/* USER CODE END MX_GPIO_Init_2 */
@@ -602,33 +617,370 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 	}
 }
 
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc1)
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
 {
 	ADC_on = 1;
 }
 
-void send_data_to_uart(float battery)
-{
-	char buffer[50];
-	int len = sprintf(buffer, "level: %f V\r\n", battery);
-	HAL_UART_Transmit(&huart2, (uint8_t*)buffer, len, HAL_MAX_DELAY);
-}
-
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-	if (huart->Instance == USART2)
+	if (huart->Instance == USART3)
 	{
-		// Préparer le buffer pour envoyer les données reçues à PuTTY
-		char buffer[20];
-		int len = sprintf(buffer, "Reçu: %c\r\n", rxData);
-
-		// Envoyer les données à PuTTY
-		HAL_UART_Transmit(&huart2, (uint8_t*)buffer, len, HAL_MAX_DELAY);
-
-		// Réactiver la réception UART
-		HAL_UART_Receive_IT(&huart2, &rxData, sizeof(rxData));
+		if(rxData == 'F')
+			currentEvent = EVENT_AV;
+		else if(rxData == 'B')
+			currentEvent = EVENT_R;
+		else if(rxData == 'L')
+			currentEvent = EVENT_G;
+		else if(rxData == 'R')
+			currentEvent = EVENT_D;
+		else if(rxData == 'X')
+			currentEvent = EVENT_END;
+		HAL_UART_Receive_IT(&huart3, &rxData, sizeof(rxData));
 	}
 }
+
+void handleEvent(Event_t event) {
+	switch (currentState) {
+	case STATE_NEUTRAL:
+		if (event == EVENT_AV) {
+			currentState = STATE_AV1;
+		}
+		else if (event == EVENT_R) {
+			currentState = STATE_R1;
+		}
+		else if (event == EVENT_D) {
+			currentState = STATE_D1;
+		}
+		else if (event == EVENT_G) {
+			currentState = STATE_G1;
+		}
+		else if (event == EVENT_END) {
+			currentState = STATE_END;
+		}
+		break;
+
+	case STATE_AV1:
+		if (event == EVENT_AV) {
+			currentState = STATE_AV2;
+		}
+		else if (event == EVENT_R) {
+			currentState = STATE_NEUTRAL;
+		}
+		else if (event == EVENT_D) {
+			currentState = STATE_D1;
+		}
+		else if (event == EVENT_G) {
+			currentState = STATE_G1;
+		}
+		else if (event == EVENT_END) {
+			currentState = STATE_END;
+		}
+		break;
+
+	case STATE_AV2:
+		if (event == EVENT_AV) {
+			currentState = STATE_AV3;
+		}
+		else if (event == EVENT_R) {
+			currentState = STATE_AV1;
+		}
+		else if (event == EVENT_D) {
+			currentState = STATE_D2;
+		}
+		else if (event == EVENT_G) {
+			currentState = STATE_G2;
+		}
+		else if (event == EVENT_END) {
+			currentState = STATE_END;
+		}
+		break;
+
+	case STATE_AV3:
+		if (event == EVENT_AV) {
+			currentState = STATE_AV3;
+		}
+		else if (event == EVENT_R) {
+			currentState = STATE_AV2;
+		}
+		else if (event == EVENT_D) {
+			currentState = STATE_D3;
+		}
+		else if (event == EVENT_G) {
+			currentState = STATE_G3;
+		}
+		else if (event == EVENT_END) {
+			currentState = STATE_END;
+		}
+		break;
+
+	case STATE_R1:
+		if (event == EVENT_AV) {
+			currentState = STATE_NEUTRAL;
+		}
+		else if (event == EVENT_R) {
+			currentState = STATE_R2;
+		}
+		else if (event == EVENT_D) {
+			currentState = STATE_D1;
+		}
+		else if (event == EVENT_G) {
+			currentState = STATE_G1;
+		}
+		else if (event == EVENT_END) {
+			currentState = STATE_END;
+		}
+		break;
+
+	case STATE_R2:
+		if (event == EVENT_AV) {
+			currentState = STATE_AV1;
+		}
+		else if (event == EVENT_R) {
+			currentState = STATE_R3;
+		}
+		else if (event == EVENT_D) {
+			currentState = STATE_D2;
+		}
+		else if (event == EVENT_G) {
+			currentState = STATE_G2;
+		}
+		else if (event == EVENT_END) {
+			currentState = STATE_END;
+		}
+		break;
+
+	case STATE_R3:
+		if (event == EVENT_AV) {
+			currentState = STATE_AV2;
+		}
+		else if (event == EVENT_R) {
+			currentState = STATE_R3;
+		}
+		else if (event == EVENT_D) {
+			currentState = STATE_D3;
+		}
+		else if (event == EVENT_G) {
+			currentState = STATE_G3;
+		}
+		else if (event == EVENT_END) {
+			currentState = STATE_END;
+		}
+		break;
+
+	case STATE_D1:
+		if (event == EVENT_AV) {
+			currentState = STATE_AV1;
+		}
+		else if (event == EVENT_R) {
+			currentState = STATE_R1;
+		}
+		else if (event == EVENT_D) {
+			currentState = STATE_D2;
+		}
+		else if (event == EVENT_G) {
+			currentState = STATE_NEUTRAL;
+		}
+		else if (event == EVENT_END) {
+			currentState = STATE_END;
+		}
+		break;
+
+	case STATE_D2:
+		if (event == EVENT_AV) {
+			currentState = STATE_AV2;
+		}
+		else if (event == EVENT_R) {
+			currentState = STATE_R2;
+		}
+		else if (event == EVENT_D) {
+			currentState = STATE_D3;
+		}
+		else if (event == EVENT_G) {
+			currentState = STATE_D1;
+		}
+		else if (event == EVENT_END) {
+			currentState = STATE_END;
+		}
+		break;
+
+	case STATE_D3:
+		if (event == EVENT_AV) {
+			currentState = STATE_AV3;
+		}
+		else if (event == EVENT_R) {
+			currentState = STATE_R3;
+		}
+		else if (event == EVENT_D) {
+			currentState = STATE_D3;
+		}
+		else if (event == EVENT_G) {
+			currentState = STATE_D2;
+		}
+		else if (event == EVENT_END) {
+			currentState = STATE_END;
+		}
+		break;
+
+	case STATE_G1:
+		if (event == EVENT_AV) {
+			currentState = STATE_AV1;
+		}
+		else if (event == EVENT_R) {
+			currentState = STATE_R1;
+		}
+		else if (event == EVENT_D) {
+			currentState = STATE_NEUTRAL;
+		}
+		else if (event == EVENT_G) {
+			currentState = STATE_G2;
+		}
+		else if (event == EVENT_END) {
+			currentState = STATE_END;
+		}
+		break;
+
+	case STATE_G2:
+		if (event == EVENT_AV) {
+			currentState = STATE_AV2;
+		}
+		else if (event == EVENT_R) {
+			currentState = STATE_R2;
+		}
+		else if (event == EVENT_D) {
+			currentState = STATE_G1;
+		}
+		else if (event == EVENT_G) {
+			currentState = STATE_G3;
+		}
+		else if (event == EVENT_END) {
+			currentState = STATE_END;
+		}
+		break;
+
+	case STATE_G3:
+		if (event == EVENT_AV) {
+			currentState = STATE_AV3;
+		}
+		else if (event == EVENT_R) {
+			currentState = STATE_R3;
+		}
+		else if (event == EVENT_D) {
+			currentState = STATE_G2;
+		}
+		else if (event == EVENT_G) {
+			currentState = STATE_G3;
+		}
+		else if (event == EVENT_END) {
+			currentState = STATE_END;
+		}
+		break;
+
+	default:
+		currentState = STATE_NEUTRAL;
+		break;
+	}
+}
+
+void executeStateActions(void) {
+	switch (currentState) {
+	case STATE_NEUTRAL:
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,0);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,0);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_RESET);
+		break;
+
+	case STATE_AV1:
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,10666);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,10666);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_RESET);
+		break;
+
+	case STATE_AV2:
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,21332);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,21332);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_RESET);
+		break;
+
+	case STATE_AV3:
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,32998);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,32998);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_RESET);
+		break;
+
+	case STATE_R1:
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,10666);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,10666);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_SET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_SET);
+		break;
+
+	case STATE_R2:
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,21332);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,21332);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_SET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_SET);
+		break;
+
+	case STATE_R3:
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,32998);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,32998);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_SET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_SET);
+		break;
+
+	case STATE_D1:
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,10666);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,10666);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_SET);
+		break;
+
+	case STATE_D2:
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,21332);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,21332);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_SET);
+		break;
+
+	case STATE_D3:
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,32998);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,32998);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_SET);
+		break;
+
+	case STATE_G1:
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,10666);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,10666);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_SET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_RESET);
+		break;
+
+	case STATE_G2:
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,21332);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,21332);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_SET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_RESET);
+		break;
+
+	case STATE_G3:
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,32998);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,32998);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_SET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_RESET);
+		break;
+
+	default:
+		currentState = STATE_NEUTRAL;
+		break;
+	}
+}
+
 
 /* USER CODE END 4 */
 
