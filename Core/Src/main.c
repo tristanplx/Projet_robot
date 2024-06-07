@@ -34,6 +34,7 @@
 /* USER CODE BEGIN PD */
 #define ADC_MAX_VALUE 255
 #define RX_BUFFER_SIZE 128
+#define DISTANCE_PER_PULSE 0.01
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -46,7 +47,6 @@ ADC_HandleTypeDef hadc1;
 
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
-TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim6;
 
 UART_HandleTypeDef huart3;
@@ -58,7 +58,11 @@ volatile uint8_t adcValue;
 volatile float batteryVoltage = 0.0f;
 volatile uint8_t ADC_on = 0;
 unsigned char rxData;
-volatile uint8_t flag;
+volatile uint32_t pulse_count = 0;
+volatile uint32_t last_capture = 0;
+volatile uint32_t current_capture = 0;
+volatile float speed = 0.0;
+
 
 typedef enum {
 	STATE_NEUTRAL,
@@ -98,7 +102,6 @@ static void MX_ADC1_Init(void);
 static void MX_TIM6_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
-static void MX_TIM4_Init(void);
 static void MX_USART3_UART_Init(void);
 /* USER CODE BEGIN PFP */
 void handleEvent(Event_t event);
@@ -143,7 +146,6 @@ int main(void)
 	MX_TIM6_Init();
 	MX_TIM2_Init();
 	MX_TIM3_Init();
-	MX_TIM4_Init();
 	MX_USART3_UART_Init();
 	/* USER CODE BEGIN 2 */
 	HAL_TIM_Base_Start_IT(&htim6);
@@ -428,58 +430,6 @@ static void MX_TIM3_Init(void)
 }
 
 /**
- * @brief TIM4 Initialization Function
- * @param None
- * @retval None
- */
-static void MX_TIM4_Init(void)
-{
-
-	/* USER CODE BEGIN TIM4_Init 0 */
-
-	/* USER CODE END TIM4_Init 0 */
-
-	TIM_MasterConfigTypeDef sMasterConfig = {0};
-	TIM_IC_InitTypeDef sConfigIC = {0};
-
-	/* USER CODE BEGIN TIM4_Init 1 */
-
-	/* USER CODE END TIM4_Init 1 */
-	htim4.Instance = TIM4;
-	htim4.Init.Prescaler = 244-1;
-	htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-	htim4.Init.Period = 65535-1;
-	htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-	htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-	if (HAL_TIM_IC_Init(&htim4) != HAL_OK)
-	{
-		Error_Handler();
-	}
-	sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-	sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-	if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK)
-	{
-		Error_Handler();
-	}
-	sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
-	sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
-	sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
-	sConfigIC.ICFilter = 0;
-	if (HAL_TIM_IC_ConfigChannel(&htim4, &sConfigIC, TIM_CHANNEL_1) != HAL_OK)
-	{
-		Error_Handler();
-	}
-	if (HAL_TIM_IC_ConfigChannel(&htim4, &sConfigIC, TIM_CHANNEL_2) != HAL_OK)
-	{
-		Error_Handler();
-	}
-	/* USER CODE BEGIN TIM4_Init 2 */
-
-	/* USER CODE END TIM4_Init 2 */
-
-}
-
-/**
  * @brief TIM6 Initialization Function
  * @param None
  * @retval None
@@ -604,6 +554,16 @@ static void MX_GPIO_Init(void)
 	GPIO_InitStruct.Pull = GPIO_NOPULL;
 	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
 	HAL_GPIO_Init(DIR1_GPIO_Port, &GPIO_InitStruct);
+
+	/*Configure GPIO pins : ENC1A_Pin ENC1B_Pin ENC2B_Pin ENC2A_Pin */
+	GPIO_InitStruct.Pin = ENC1A_Pin|ENC1B_Pin|ENC2B_Pin|ENC2A_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+	GPIO_InitStruct.Pull = GPIO_PULLUP;
+	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+	/* EXTI interrupt init*/
+	HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
+	HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
 	/* USER CODE BEGIN MX_GPIO_Init_2 */
 	/* USER CODE END MX_GPIO_Init_2 */
@@ -1046,6 +1006,23 @@ void executeStateActions(void) {
 	}
 }
 
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+    if(GPIO_Pin == ENC1A_Pin)
+    {
+        current_capture = __HAL_TIM_GET_COUNTER(&htim6);
+        uint32_t elapsed_time = current_capture - last_capture;
+        last_capture = current_capture;
+
+        if (elapsed_time > 0)
+        {
+            speed = (DISTANCE_PER_PULSE / elapsed_time) * 1000;
+        }
+
+        pulse_count++;
+    }
+}
+
 
 /* USER CODE END 4 */
 
@@ -1053,11 +1030,11 @@ void executeStateActions(void) {
  * @brief  This function is executed in case of error occurrence.
  * @retval None
  */
- void Error_Handler(void)
+void Error_Handler(void)
 {
 	/* USER CODE BEGIN Error_Handler_Debug */
 	/* User can add his own implementation to report the HAL error return state */
-			__disable_irq();
+	__disable_irq();
 	while (1)
 	{
 	}
@@ -1072,11 +1049,11 @@ void executeStateActions(void) {
  * @param  line: assert_param error line source number
  * @retval None
  */
- void assert_failed(uint8_t *file, uint32_t line)
- {
-	 /* USER CODE BEGIN 6 */
-	 /* User can add his own implementation to report the file name and line number,
+void assert_failed(uint8_t *file, uint32_t line)
+{
+	/* USER CODE BEGIN 6 */
+	/* User can add his own implementation to report the file name and line number,
      ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
-	 /* USER CODE END 6 */
- }
+	/* USER CODE END 6 */
+}
 #endif /* USE_FULL_ASSERT */
