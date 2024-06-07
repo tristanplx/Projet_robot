@@ -83,11 +83,12 @@ typedef enum {
 	EVENT_D,
 	EVENT_G,
 	EVENT_END,
+	EVENT_NEUTRAL,
 } Event_t;
 
 
 State_t currentState = STATE_NEUTRAL;
-Event_t currentEvent;
+Event_t currentEvent = EVENT_NEUTRAL;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -155,6 +156,9 @@ int main(void)
 	/* USER CODE BEGIN WHILE */
 	while (1)
 	{
+		handleEvent(currentEvent);
+		executeStateActions();
+		HAL_Delay(150);
 		if (T_batt >= 50)
 		{
 			T_batt = 0;
@@ -164,7 +168,7 @@ int main(void)
 				ADC_on = 0;
 				adcValue = HAL_ADC_GetValue(&hadc1);
 
-				if (adcValue > 231)
+				if (adcValue < 231)
 				{
 					HAL_GPIO_WritePin(Alert_batt_GPIO_Port, Alert_batt_Pin, GPIO_PIN_SET); // Allumer la LED
 				}
@@ -172,8 +176,6 @@ int main(void)
 				{
 					HAL_GPIO_WritePin(Alert_batt_GPIO_Port, Alert_batt_Pin, GPIO_PIN_RESET); // Éteindre la LED
 				}
-				handleEvent(currentEvent);
-				executeStateActions();
 			}
 
 		}
@@ -322,7 +324,7 @@ static void MX_TIM2_Init(void)
 	htim2.Instance = TIM2;
 	htim2.Init.Prescaler = 4-1;
 	htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-	htim2.Init.Period = 32000-1;
+	htim2.Init.Period = 40000-1;
 	htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
 	htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
 	if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -636,6 +638,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 			currentEvent = EVENT_D;
 		else if(rxData == 'X')
 			currentEvent = EVENT_END;
+		else
+			currentEvent = EVENT_NEUTRAL;
 		HAL_UART_Receive_IT(&huart3, &rxData, sizeof(rxData));
 	}
 }
@@ -658,6 +662,9 @@ void handleEvent(Event_t event) {
 		else if (event == EVENT_END) {
 			currentState = STATE_END;
 		}
+		else if (event == EVENT_NEUTRAL){
+			currentState = currentState;
+		}
 		break;
 
 	case STATE_AV1:
@@ -675,6 +682,9 @@ void handleEvent(Event_t event) {
 		}
 		else if (event == EVENT_END) {
 			currentState = STATE_END;
+		}
+		else if (event == EVENT_NEUTRAL){
+			currentState = currentState;
 		}
 		break;
 
@@ -694,6 +704,9 @@ void handleEvent(Event_t event) {
 		else if (event == EVENT_END) {
 			currentState = STATE_END;
 		}
+		else if (event == EVENT_NEUTRAL){
+			currentState = currentState;
+		}
 		break;
 
 	case STATE_AV3:
@@ -711,6 +724,9 @@ void handleEvent(Event_t event) {
 		}
 		else if (event == EVENT_END) {
 			currentState = STATE_END;
+		}
+		else if (event == EVENT_NEUTRAL){
+			currentState = currentState;
 		}
 		break;
 
@@ -730,11 +746,14 @@ void handleEvent(Event_t event) {
 		else if (event == EVENT_END) {
 			currentState = STATE_END;
 		}
+		else if (event == EVENT_NEUTRAL){
+			currentState = currentState;
+		}
 		break;
 
 	case STATE_R2:
 		if (event == EVENT_AV) {
-			currentState = STATE_AV1;
+			currentState = STATE_R1;
 		}
 		else if (event == EVENT_R) {
 			currentState = STATE_R3;
@@ -748,11 +767,14 @@ void handleEvent(Event_t event) {
 		else if (event == EVENT_END) {
 			currentState = STATE_END;
 		}
+		else if (event == EVENT_NEUTRAL){
+			currentState = currentState;
+		}
 		break;
 
 	case STATE_R3:
 		if (event == EVENT_AV) {
-			currentState = STATE_AV2;
+			currentState = STATE_R2;
 		}
 		else if (event == EVENT_R) {
 			currentState = STATE_R3;
@@ -765,6 +787,9 @@ void handleEvent(Event_t event) {
 		}
 		else if (event == EVENT_END) {
 			currentState = STATE_END;
+		}
+		else if (event == EVENT_NEUTRAL){
+			currentState = currentState;
 		}
 		break;
 
@@ -784,6 +809,9 @@ void handleEvent(Event_t event) {
 		else if (event == EVENT_END) {
 			currentState = STATE_END;
 		}
+		else if (event == EVENT_NEUTRAL){
+			currentState = currentState;
+		}
 		break;
 
 	case STATE_D2:
@@ -801,6 +829,9 @@ void handleEvent(Event_t event) {
 		}
 		else if (event == EVENT_END) {
 			currentState = STATE_END;
+		}
+		else if (event == EVENT_NEUTRAL){
+			currentState = currentState;
 		}
 		break;
 
@@ -820,6 +851,9 @@ void handleEvent(Event_t event) {
 		else if (event == EVENT_END) {
 			currentState = STATE_END;
 		}
+		else if (event == EVENT_NEUTRAL){
+			currentState = currentState;
+		}
 		break;
 
 	case STATE_G1:
@@ -837,6 +871,9 @@ void handleEvent(Event_t event) {
 		}
 		else if (event == EVENT_END) {
 			currentState = STATE_END;
+		}
+		else if (event == EVENT_NEUTRAL){
+			currentState = currentState;
 		}
 		break;
 
@@ -856,6 +893,9 @@ void handleEvent(Event_t event) {
 		else if (event == EVENT_END) {
 			currentState = STATE_END;
 		}
+		else if (event == EVENT_NEUTRAL){
+			currentState = currentState;
+		}
 		break;
 
 	case STATE_G3:
@@ -873,6 +913,9 @@ void handleEvent(Event_t event) {
 		}
 		else if (event == EVENT_END) {
 			currentState = STATE_END;
+		}
+		else if (event == EVENT_NEUTRAL){
+			currentState = currentState;
 		}
 		break;
 
@@ -887,92 +930,114 @@ void executeStateActions(void) {
 	case STATE_NEUTRAL:
 		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,0);
 		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,0);
-		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_RESET);
 		break;
 
 	case STATE_AV1:
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,10666);
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,10666);
-		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_RESET);
+
+
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,13333);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,13333);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_SET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_SET);
 		break;
 
 	case STATE_AV2:
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,21332);
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,21332);
-		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_RESET);
+
+
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,26666);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,26666);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_SET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_SET);
 		break;
 
 	case STATE_AV3:
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,32998);
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,32998);
-		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_RESET);
+
+
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,39997);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,39997);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_SET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_SET);
 		break;
 
 	case STATE_R1:
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,10666);
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,10666);
-		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_SET);
-		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_SET);
+
+
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,13333);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,13333);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_RESET);
 		break;
 
 	case STATE_R2:
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,21332);
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,21332);
-		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_SET);
-		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_SET);
+
+
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,26666);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,26666);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_RESET);
 		break;
 
 	case STATE_R3:
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,32998);
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,32998);
-		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_SET);
-		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_SET);
+
+
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,39997);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,39997);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_RESET);
 		break;
 
 	case STATE_D1:
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,10666);
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,10666);
-		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_SET);
+
+
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,13333);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,13333);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_SET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_RESET);
 		break;
 
 	case STATE_D2:
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,21332);
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,21332);
-		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_SET);
+
+
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,26666);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,26666);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_SET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_RESET);
 		break;
 
 	case STATE_D3:
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,32998);
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,32998);
+
+
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,39997);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,39997);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_SET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_RESET);
+		break;
+
+	case STATE_G1:
+
+
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,13333);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,13333);
 		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_RESET);
 		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_SET);
 		break;
 
-	case STATE_G1:
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,10666);
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,10666);
-		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_SET);
-		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_RESET);
-		break;
-
 	case STATE_G2:
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,21332);
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,21332);
-		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_SET);
-		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_RESET);
+
+
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,26666);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,26666);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_SET);
 		break;
 
 	case STATE_G3:
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,32998);
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,32998);
-		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_SET);
-		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_RESET);
+
+
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,39997);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,39997);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_SET);
 		break;
 
 	default:
@@ -988,11 +1053,11 @@ void executeStateActions(void) {
  * @brief  This function is executed in case of error occurrence.
  * @retval None
  */
-void Error_Handler(void)
+ void Error_Handler(void)
 {
 	/* USER CODE BEGIN Error_Handler_Debug */
 	/* User can add his own implementation to report the HAL error return state */
-	__disable_irq();
+			__disable_irq();
 	while (1)
 	{
 	}
@@ -1007,11 +1072,11 @@ void Error_Handler(void)
  * @param  line: assert_param error line source number
  * @retval None
  */
-void assert_failed(uint8_t *file, uint32_t line)
-{
-	/* USER CODE BEGIN 6 */
-	/* User can add his own implementation to report the file name and line number,
+ void assert_failed(uint8_t *file, uint32_t line)
+ {
+	 /* USER CODE BEGIN 6 */
+	 /* User can add his own implementation to report the file name and line number,
      ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
-	/* USER CODE END 6 */
-}
+	 /* USER CODE END 6 */
+ }
 #endif /* USE_FULL_ASSERT */
