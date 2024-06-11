@@ -47,6 +47,7 @@ ADC_HandleTypeDef hadc1;
 
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
+TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim6;
 
 UART_HandleTypeDef huart3;
@@ -62,7 +63,24 @@ volatile uint32_t pulse_count = 0;
 volatile uint32_t last_capture = 0;
 volatile uint32_t current_capture = 0;
 volatile float speed = 0.0;
-
+volatile int32_t encoder_value_right = 0;
+volatile int32_t encoder_value_left = 0;
+volatile uint8_t T_enc = 0;
+volatile uint32_t encoder_value_right_minus200 = 0;
+volatile uint32_t encoder_value_left_minus200 = 0;
+volatile uint8_t epsilon = 0;
+volatile uint8_t target10 = 13333;
+volatile uint8_t target20 = 26666;
+volatile uint8_t target30 = 39997;
+volatile uint8_t target10_top = 16;
+volatile uint8_t target20_top = 36;
+volatile uint8_t target30_top = 48;
+volatile uint8_t somme_erreur = 0;
+volatile uint8_t somme_erreur_minus200 = 0;
+volatile uint8_t variation_erreur = 0;
+volatile uint8_t commande = 0;
+volatile uint8_t Kp = 0;
+volatile uint8_t Ki = 0;
 
 typedef enum {
 	STATE_NEUTRAL,
@@ -103,6 +121,8 @@ static void MX_TIM6_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_USART3_UART_Init(void);
+static void MX_TIM4_Init(void);
+int calculCommande(int mode);
 /* USER CODE BEGIN PFP */
 void handleEvent(Event_t event);
 void executeStateActions(void);
@@ -147,11 +167,16 @@ int main(void)
 	MX_TIM2_Init();
 	MX_TIM3_Init();
 	MX_USART3_UART_Init();
+	MX_TIM4_Init();
 	/* USER CODE BEGIN 2 */
 	HAL_TIM_Base_Start_IT(&htim6);
 	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
 	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
 	HAL_UART_Receive_IT(&huart3, &rxData, sizeof(rxData));
+	HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);
+	HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
+
+
 	/* USER CODE END 2 */
 
 	/* Infinite loop */
@@ -179,6 +204,15 @@ int main(void)
 					HAL_GPIO_WritePin(Alert_batt_GPIO_Port, Alert_batt_Pin, GPIO_PIN_RESET); // Éteindre la LED
 				}
 			}
+
+		}
+		if (T_enc >= 2)
+		{
+			T_enc = 0;
+			encoder_value_right_minus200 = encoder_value_right;
+			encoder_value_left_minus200 = encoder_value_left;
+			encoder_value_left = (TIM4->CNT);
+			encoder_value_right = (TIM3->CNT);
 
 		}
 		/* USER CODE END WHILE */
@@ -379,29 +413,28 @@ static void MX_TIM3_Init(void)
 
 	/* USER CODE END TIM3_Init 0 */
 
-	TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+	TIM_Encoder_InitTypeDef sConfig = {0};
 	TIM_MasterConfigTypeDef sMasterConfig = {0};
-	TIM_IC_InitTypeDef sConfigIC = {0};
 
 	/* USER CODE BEGIN TIM3_Init 1 */
 
 	/* USER CODE END TIM3_Init 1 */
 	htim3.Instance = TIM3;
-	htim3.Init.Prescaler = 244-1;
+	htim3.Init.Prescaler = 0;
 	htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-	htim3.Init.Period = 65535-1;
+	htim3.Init.Period = 65535;
 	htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
 	htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-	if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
-	{
-		Error_Handler();
-	}
-	sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-	if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
-	{
-		Error_Handler();
-	}
-	if (HAL_TIM_IC_Init(&htim3) != HAL_OK)
+	sConfig.EncoderMode = TIM_ENCODERMODE_TI1;
+	sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
+	sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
+	sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
+	sConfig.IC1Filter = 0;
+	sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
+	sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
+	sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
+	sConfig.IC2Filter = 0;
+	if (HAL_TIM_Encoder_Init(&htim3, &sConfig) != HAL_OK)
 	{
 		Error_Handler();
 	}
@@ -411,21 +444,58 @@ static void MX_TIM3_Init(void)
 	{
 		Error_Handler();
 	}
-	sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
-	sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
-	sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
-	sConfigIC.ICFilter = 0;
-	if (HAL_TIM_IC_ConfigChannel(&htim3, &sConfigIC, TIM_CHANNEL_1) != HAL_OK)
-	{
-		Error_Handler();
-	}
-	if (HAL_TIM_IC_ConfigChannel(&htim3, &sConfigIC, TIM_CHANNEL_2) != HAL_OK)
-	{
-		Error_Handler();
-	}
 	/* USER CODE BEGIN TIM3_Init 2 */
 
 	/* USER CODE END TIM3_Init 2 */
+
+}
+
+/**
+ * @brief TIM4 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_TIM4_Init(void)
+{
+
+	/* USER CODE BEGIN TIM4_Init 0 */
+
+	/* USER CODE END TIM4_Init 0 */
+
+	TIM_Encoder_InitTypeDef sConfig = {0};
+	TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+	/* USER CODE BEGIN TIM4_Init 1 */
+
+	/* USER CODE END TIM4_Init 1 */
+	htim4.Instance = TIM4;
+	htim4.Init.Prescaler = 0;
+	htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
+	htim4.Init.Period = 65535;
+	htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+	htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+	sConfig.EncoderMode = TIM_ENCODERMODE_TI1;
+	sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
+	sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
+	sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
+	sConfig.IC1Filter = 0;
+	sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
+	sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
+	sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
+	sConfig.IC2Filter = 0;
+	if (HAL_TIM_Encoder_Init(&htim4, &sConfig) != HAL_OK)
+	{
+		Error_Handler();
+	}
+	sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+	sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+	if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK)
+	{
+		Error_Handler();
+	}
+	/* USER CODE BEGIN TIM4_Init 2 */
+
+	/* USER CODE END TIM4_Init 2 */
 
 }
 
@@ -555,12 +625,6 @@ static void MX_GPIO_Init(void)
 	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
 	HAL_GPIO_Init(DIR1_GPIO_Port, &GPIO_InitStruct);
 
-	/*Configure GPIO pins : ENC1A_Pin ENC1B_Pin ENC2B_Pin ENC2A_Pin */
-	GPIO_InitStruct.Pin = ENC1A_Pin|ENC1B_Pin|ENC2B_Pin|ENC2A_Pin;
-	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-	GPIO_InitStruct.Pull = GPIO_PULLUP;
-	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
 	/* EXTI interrupt init*/
 	HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
 	HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
@@ -576,6 +640,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 	if (htim->Instance == TIM6)
 	{
 		T_batt++;
+		T_enc++;
 	}
 }
 
@@ -1008,21 +1073,25 @@ void executeStateActions(void) {
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-    if(GPIO_Pin == ENC1A_Pin)
-    {
-        current_capture = __HAL_TIM_GET_COUNTER(&htim6);
-        uint32_t elapsed_time = current_capture - last_capture;
-        last_capture = current_capture;
+	if(GPIO_Pin == ENC1A_Pin)
+	{
+		current_capture = __HAL_TIM_GET_COUNTER(&htim6);
+		uint32_t elapsed_time = current_capture - last_capture;
+		last_capture = current_capture;
 
-        if (elapsed_time > 0)
-        {
-            speed = (DISTANCE_PER_PULSE / elapsed_time) * 1000;
-        }
+		if (elapsed_time > 0)
+		{
+			speed = (DISTANCE_PER_PULSE / elapsed_time) * 1000;
+		}
 
-        pulse_count++;
-    }
+		pulse_count++;
+	}
 }
 
+int calculCommande(int mode, int cote)
+{
+	return 0;
+}
 
 /* USER CODE END 4 */
 
