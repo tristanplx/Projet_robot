@@ -23,6 +23,7 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -35,6 +36,10 @@
 #define ADC_MAX_VALUE 255
 #define RX_BUFFER_SIZE 128
 #define DISTANCE_PER_PULSE 0.01
+#define CKp_D 1
+#define CKp_G 1
+#define CKi_D 1
+#define CKi_G 1
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -69,18 +74,18 @@ volatile uint8_t T_enc = 0;
 volatile uint32_t encoder_value_right_minus200 = 0;
 volatile uint32_t encoder_value_left_minus200 = 0;
 volatile uint8_t epsilon = 0;
-volatile uint8_t target10 = 13333;
-volatile uint8_t target20 = 26666;
-volatile uint8_t target30 = 39997;
+volatile uint64_t target10 = 13333;
+volatile uint64_t target20 = 26666;
+volatile uint64_t target30 = 39997;
 volatile uint8_t target10_top = 16;
 volatile uint8_t target20_top = 36;
 volatile uint8_t target30_top = 48;
-volatile uint8_t somme_erreur = 0;
-volatile uint8_t somme_erreur_minus200 = 0;
+volatile uint16_t somme_erreurs = 0;
+volatile uint16_t somme_erreurs_minus200 = 0;
 volatile uint8_t variation_erreur = 0;
 volatile uint8_t commande = 0;
-volatile uint8_t Kp = 0;
-volatile uint8_t Ki = 0;
+volatile uint64_t VG = 0, VD=0;
+
 
 typedef enum {
 	STATE_NEUTRAL,
@@ -122,7 +127,7 @@ static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_TIM4_Init(void);
-int calculCommande(int mode);
+uint32_t calculCommande(int mode, int cote);
 /* USER CODE BEGIN PFP */
 void handleEvent(Event_t event);
 void executeStateActions(void);
@@ -950,119 +955,187 @@ void handleEvent(Event_t event) {
 	}
 }
 
+uint32_t calculCommande(int mode, int cote)
+{
+    uint32_t sortie = 0;
+    int32_t somme_erreurs = 0; // Initialisation de la somme des erreurs
+    int32_t commande;
+
+    // Définir la valeur maximale du codeur
+    const uint32_t MAX_ENCODER_VALUE = 65000;
+
+    // Définir les cibles et les valeurs du codeur selon le mode et le côté
+    uint32_t target = 0;
+    uint32_t targetTop = 0;
+    int32_t encoder_value_current = 0;
+    int32_t encoder_value_previous = 0;
+    float CKp = 0.0f;
+    float CKi = 0.0f;
+
+    // Sélectionner les cibles en fonction du mode
+    if (mode == 1)
+    {
+        target = target10;
+        targetTop = target10_top;
+    }
+    else if (mode == 2)
+    {
+        target = target20;
+        targetTop = target20_top;
+    }
+    else if (mode == 3)
+    {
+        target = target30;
+        targetTop = target30_top;
+    }
+
+    // Sélectionner les valeurs du codeur et les coefficients en fonction du côté
+    if (cote == 0)
+    {
+        encoder_value_current = encoder_value_right;
+        encoder_value_previous = encoder_value_right_minus200;
+        CKp = CKp_D;
+        CKi = CKi_D;
+    }
+    else if (cote == 1)
+    {
+        encoder_value_current = encoder_value_left;
+        encoder_value_previous = encoder_value_left_minus200;
+        CKp = CKp_G;
+        CKi = CKi_G;
+    }
+
+    // Calculer l'écart avec gestion du débordement du codeur
+    if (encoder_value_current >= encoder_value_previous)
+    {
+        epsilon = target - abs(encoder_value_current - encoder_value_previous);
+    }
+    else
+    {
+        epsilon = target - abs((MAX_ENCODER_VALUE - encoder_value_previous) + encoder_value_current);
+    }
+
+    somme_erreurs += epsilon;
+    commande = CKp * epsilon + CKi * somme_erreurs;
+    sortie = (target * commande) / targetTop;
+
+    return sortie; // Point-virgule ajouté
+}
+
+
 void executeStateActions(void) {
 	switch (currentState) {
 	case STATE_NEUTRAL:
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,0);
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,0);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_RESET);
 		break;
 
 	case STATE_AV1:
-
-
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,13333);
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,13333);
-		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_SET);
-		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_SET);
+		VG = calculCommande(1,1);
+		VD = calculCommande(1,0);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,VG);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,VD);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_RESET);
 		break;
 
 	case STATE_AV2:
-
-
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,26666);
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,26666);
-		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_SET);
-		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_SET);
+		VG = calculCommande(2,1);
+		VD = calculCommande(2,0);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,VG);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,VD);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_RESET);
 		break;
 
 	case STATE_AV3:
-
-
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,39997);
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,39997);
-		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_SET);
-		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_SET);
+		VG = calculCommande(3,1);
+		VD = calculCommande(3,0);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,VG);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,VD);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_RESET);
 		break;
 
 	case STATE_R1:
-
-
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,13333);
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,13333);
-		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_RESET);
+		VG = calculCommande(1,1);
+		VD = calculCommande(1,0);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,VG);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,VD);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_SET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_SET);
 		break;
 
 	case STATE_R2:
-
-
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,26666);
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,26666);
-		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_RESET);
+		VG = calculCommande(2,1);
+		VD = calculCommande(2,0);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,VG);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,VD);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_SET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_SET);
 		break;
 
 	case STATE_R3:
-
-
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,39997);
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,39997);
-		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_RESET);
+		VG = calculCommande(3,1);
+		VD = calculCommande(3,0);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,VG);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,VD);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_SET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_SET);
 		break;
 
 	case STATE_D1:
-
-
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,13333);
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,13333);
-		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_SET);
-		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_RESET);
+		VG = calculCommande(1,1);
+		VD = calculCommande(1,0);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,VG);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,VD);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_SET);
 		break;
 
 	case STATE_D2:
-
-
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,26666);
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,26666);
-		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_SET);
-		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_RESET);
+		VG = calculCommande(2,1);
+		VD = calculCommande(2,0);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,VG);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,VD);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_SET);
 		break;
 
 	case STATE_D3:
+		VG = calculCommande(3,1);
+		VD = calculCommande(3,0);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,VG);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,VD);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_SET);
+		break;
 
-
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,39997);
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,39997);
+	case STATE_G1:
+		VG = calculCommande(1,1);
+		VD = calculCommande(1,0);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,VG);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,VD);
 		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_SET);
 		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_RESET);
 		break;
 
-	case STATE_G1:
-
-
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,13333);
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,13333);
-		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_SET);
-		break;
-
 	case STATE_G2:
-
-
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,26666);
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,26666);
-		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_SET);
+		VG = calculCommande(2,1);
+		VD = calculCommande(2,0);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,VG);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,VD);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_SET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_RESET);
 		break;
 
 	case STATE_G3:
-
-
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,39997);
-		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,39997);
-		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_SET);
+		VG = calculCommande(3,1);
+		VD = calculCommande(3,0);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1,VG);
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_4,VD);
+		HAL_GPIO_WritePin(DIR2_GPIO_Port,DIR2_Pin,GPIO_PIN_SET);
+		HAL_GPIO_WritePin(DIR1_GPIO_Port,DIR1_Pin,GPIO_PIN_RESET);
 		break;
 
 	default:
@@ -1088,22 +1161,17 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	}
 }
 
-int calculCommande(int mode, int cote)
-{
-	return 0;
-}
-
 /* USER CODE END 4 */
 
 /**
  * @brief  This function is executed in case of error occurrence.
  * @retval None
  */
-void Error_Handler(void)
+ void Error_Handler(void)
 {
 	/* USER CODE BEGIN Error_Handler_Debug */
 	/* User can add his own implementation to report the HAL error return state */
-	__disable_irq();
+			__disable_irq();
 	while (1)
 	{
 	}
@@ -1118,11 +1186,11 @@ void Error_Handler(void)
  * @param  line: assert_param error line source number
  * @retval None
  */
-void assert_failed(uint8_t *file, uint32_t line)
-{
-	/* USER CODE BEGIN 6 */
-	/* User can add his own implementation to report the file name and line number,
+ void assert_failed(uint8_t *file, uint32_t line)
+ {
+	 /* USER CODE BEGIN 6 */
+	 /* User can add his own implementation to report the file name and line number,
      ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
-	/* USER CODE END 6 */
-}
+	 /* USER CODE END 6 */
+ }
 #endif /* USE_FULL_ASSERT */
