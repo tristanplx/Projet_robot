@@ -35,6 +35,26 @@ The robot's battery level is monitored through ADC (Analog to Digital Converter)
 -   **Battery Monitoring**: A low battery warning system using an ADC to monitor the voltage level.
 -   **PI Control**: Speed regulation using Proportional Integral control for consistent motor performance.
 
+### Key Functions
+
+-   **`handleEvent(Event_t event)`**:  
+    This function manages the state transitions of the robot based on the received event. The function evaluates the current state of the robot and the new event to decide which state the robot should transition to next. For instance, receiving a forward event will transition the robot to a forward movement state, while receiving a stop event will lead to a neutral state. Each state corresponds to a different action, such as moving forward, rotating, or stopping.
+    
+-   **`executeStateActions()`**:  
+    This function executes the actions associated with the current state of the robot. Depending on the state, it adjusts the speed and direction of the motors using PWM signals and GPIO pins. For example, if the robot is in a forward state, this function sets the PWM signal to drive the motors forward. If in reverse, it sets the PWM signals accordingly and reverses the motor direction.
+    
+-   **`calculCommande(int mode, int cote)`**:  
+    This function calculates the control command for the motors based on the desired speed (mode) and the side of the robot (left or right). It uses a Proportional Integral (PI) controller to adjust the motor speed, taking into account the error between the target speed and the actual speed, as measured by the encoders. The function adjusts the motor speed by calculating the required PWM signal to achieve the desired speed.
+    
+-   **`HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)`**:  
+    This function is called each time the timer period elapses. It is primarily used to increment time-based counters like `T_batt` and `T_enc` that control periodic tasks, such as battery level monitoring and encoder value reading.
+    
+-   **`HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)`**:  
+    This function is called when the ADC (Analog to Digital Converter) finishes converting the battery voltage. It stores the conversion result and triggers further action, such as alerting the user if the battery voltage is below a critical level.
+    
+-   **`HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)`**:  
+    This function handles incoming data over the Bluetooth connection. When a complete command is received (e.g., forward, backward, left, or right), it sets the corresponding event to trigger a state change in the robot.
+
 ## Authors
 
 School project for the Mines of Saint-Etienne.  
@@ -75,6 +95,25 @@ Le niveau de la batterie du robot est surveillé via un convertisseur analogique
 -   **Surveillance de la Batterie** : Un système d’alerte en cas de batterie faible utilisant un ADC pour surveiller le niveau de tension.
 -   **Asservissement PI** : Régulation de la vitesse des moteurs grâce à un contrôle proportionnel intégral.
 
+### Fonctions Clés
+
+-   **`handleEvent(Event_t event)`** :  
+    Cette fonction gère les transitions d'état du robot en fonction de l'événement reçu. La fonction évalue l'état actuel du robot et le nouvel événement pour déterminer l'état vers lequel le robot doit se diriger ensuite. Par exemple, la réception d'un événement "avancer" fera passer le robot à un état de mouvement en avant, tandis que la réception d'un événement "arrêt" ramènera le robot à l'état neutre. Chaque état correspond à une action différente, comme avancer, tourner ou s'arrêter.
+    
+-   **`executeStateActions()`** :  
+    Cette fonction exécute les actions associées à l'état actuel du robot. Selon l'état, elle ajuste la vitesse et la direction des moteurs en utilisant des signaux PWM et des broches GPIO. Par exemple, si le robot est dans un état d'avance, cette fonction configure le signal PWM pour faire avancer les moteurs. Si le robot est en marche arrière, elle ajuste les signaux PWM en conséquence et inverse la direction des moteurs.
+    
+-   **`calculCommande(int mode, int cote)`** :  
+    Cette fonction calcule la commande de contrôle pour les moteurs en fonction de la vitesse souhaitée (mode) et du côté du robot (gauche ou droite). Elle utilise un contrôleur Proportionnel Intégral (PI) pour ajuster la vitesse des moteurs en tenant compte de l'erreur entre la vitesse cible et la vitesse réelle mesurée par les encodeurs. La fonction ajuste la vitesse des moteurs en calculant le signal PWM nécessaire pour atteindre la vitesse souhaitée.
+    
+-   **`HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)`** :  
+    Cette fonction est appelée chaque fois que la période du timer s'écoule. Elle est principalement utilisée pour incrémenter des compteurs liés au temps comme `T_batt` et `T_enc` qui contrôlent les tâches périodiques, telles que la surveillance de la batterie et la lecture des valeurs des encodeurs.
+    
+-   **`HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)`** :  
+    Cette fonction est appelée lorsque le convertisseur analogique-numérique (ADC) termine la conversion de la tension de la batterie. Elle stocke le résultat de la conversion et déclenche une action supplémentaire, comme alerter l'utilisateur si la tension de la batterie est inférieure à un niveau critique.
+    
+-   **`HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)`** :  
+    Cette fonction gère les données entrantes via la connexion Bluetooth. Lorsqu'une commande complète est reçue (par exemple, avancer, reculer, gauche ou droite), elle définit l'événement correspondant pour déclencher un changement d'état du robot.
 ## Auteurs
 
 Projet scolaire pour l'École des Mines de Saint-Étienne.  
