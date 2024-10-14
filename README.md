@@ -119,3 +119,6 @@ Le niveau de la batterie du robot est surveillé via un convertisseur analogique
 Projet scolaire pour l'École des Mines de Saint-Étienne.  
 [Martin RABIER](https://github.com/MartinRabier) @MartinRabier  
 [Tristan Panhelleux](https://github.com/tristanplx) @tristanplx
+
+![Alt text](https://github.com/user-attachments/assets/a80c120f-dad3-47e3-9ee0-82401f6e7e81)
+
