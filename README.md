@@ -129,5 +129,7 @@ Projet scolaire pour l'École des Mines de Saint-Étienne.
 [Martin RABIER](https://github.com/MartinRabier) @MartinRabier  
 [Tristan Panhelleux](https://github.com/tristanplx) @tristanplx
 ## Algorigramme / Algorithm Flowchart
+<a name="flowchart"></a>
+<a name="algorigramme"></a>
 ![Algorigramme](https://github.com/user-attachments/assets/a80c120f-dad3-47e3-9ee0-82401f6e7e81)
 
