@@ -55,6 +55,10 @@ The robot's battery level is monitored through ADC (Analog to Digital Converter)
 -   **`HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)`**:  
     This function handles incoming data over the Bluetooth connection. When a complete command is received (e.g., forward, backward, left, or right), it sets the corresponding event to trigger a state change in the robot.
 
+### Algorithm Flowchart
+
+The **flowchart** describes the core logic of the robot's state machine and control system, showing how different commands and transitions are handled. You can find the detailed flowchart [here](#flowchart).
+
 ## Authors
 
 School project for the Mines of Saint-Etienne.  
@@ -114,11 +118,16 @@ Le niveau de la batterie du robot est surveillé via un convertisseur analogique
     
 -   **`HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)`** :  
     Cette fonction gère les données entrantes via la connexion Bluetooth. Lorsqu'une commande complète est reçue (par exemple, avancer, reculer, gauche ou droite), elle définit l'événement correspondant pour déclencher un changement d'état du robot.
+
+### Algorigramme
+
+L'**algorigramme** décrit la logique principale de la machine d'état et du système de contrôle du robot, montrant comment les commandes et transitions sont gérées. Vous pouvez consulter l'algorigramme détaillé [ici](#algorigramme).
+
 ## Auteurs
 
 Projet scolaire pour l'École des Mines de Saint-Étienne.  
 [Martin RABIER](https://github.com/MartinRabier) @MartinRabier  
 [Tristan Panhelleux](https://github.com/tristanplx) @tristanplx
-
-![Alt text](https://github.com/user-attachments/assets/a80c120f-dad3-47e3-9ee0-82401f6e7e81)
+## Algorigramme / Algorithm Flowchart
+![Algorigramme](https://github.com/user-attachments/assets/a80c120f-dad3-47e3-9ee0-82401f6e7e81)
 
