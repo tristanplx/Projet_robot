@@ -1,7 +1,3 @@
-Voici une version mise à jour du README en prenant en compte tes nouvelles demandes :
-
-----------
-
 [English <img src="https://cdn-icons-png.flaticon.com/16/197/197374.png" width="16"/>](#english-version)  
 [Français <img src="https://cdn-icons-png.flaticon.com/16/197/197560.png" width="16"/>](#version-fran%C3%A7aise)
 
