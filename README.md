@@ -57,7 +57,7 @@ The robot's battery level is monitored through ADC (Analog to Digital Converter)
 
 ### Algorithm Flowchart
 
-The **flowchart** describes the core logic of the robot's state machine and control system, showing how different commands and transitions are handled. You can find the detailed flowchart [here](#flowchart).
+The **flowchart** describes the core logic of the robot's state machine and control system, showing how different commands and transitions are handled. You can find the detailed flowchart [here](#algorigramme).
 
 ## Authors
 
